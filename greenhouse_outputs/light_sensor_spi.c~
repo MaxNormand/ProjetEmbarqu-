@@ -1,0 +1,148 @@
+#include <linux/module.h>
+#include <linux/kernel.h>
+#include <linux/device.h>
+#include <linux/fs.h>
+#include<linux/string.h>
+#include <linux/slab.h>
+#include <linux/uaccess.h>
+
+static int device_read(struct file *f, char __user *data, size_t size, loff_t *l);
+static int device_write(struct file *f, const char __user *data, size_t size, loff_t *l);
+static int device_open(struct inode *i, struct file *f);
+static int device_release(struct inode *i, struct file *f);
+static long device_ioctl (struct file *, unsigned int, unsigned long);
+
+
+struct file_operations fops = {
+	.read = device_read,
+	.write = device_write,
+	.unlocked_ioctl = device_ioctl,
+	.open = device_open,
+	.release = device_release,
+};
+
+
+/* Variables globales.
+   Simple question de facilité pour la lecture du code d'exemple.
+   À éviter au maximum en vrai.
+ */
+int major;
+struct device *dev;
+static struct class *class;
+dev_t devt;
+
+
+/* Cette fonction est appelée quand l'utilisateur ouvre notre fichier virtuel.
+ */
+static int device_open(struct inode *i, struct file *f)
+{
+	printk(KERN_INFO"Ouverture!\n");
+	return 0;
+}
+
+
+/* Cette fonction est appelée quand l'utilisateur effectue une lecture sur notre
+ * fichier virtuel.
+ *
+ * Elle reçoit un buffer à remplir et une taille demandée.
+ * Elle doit remplir le buffer et retourner la taille effective.
+*/
+static int device_read(struct file *f, char __user *data, size_t size, loff_t *l)
+{
+	int i;
+	for (i = 0; i < size; i++)
+		data[i] = i;
+	return size;
+}
+
+
+/* Cette fonction est appelée quand l'utilisateur effectue une écriture sur
+ * notre fichier virtuel.
+ *
+ * Elle reçoit un buffer contenant des données.
+ * Elle doit utiliser les données et retourner le nombre de données
+ * effectivement utilisées.
+*/
+static int device_write(struct file *f, const char __user *data, size_t size, loff_t *l)
+{
+	char *plop = kmalloc(size + 1, GFP_KERNEL);
+	copy_from_user(plop, data, size);
+	plop[size] = 0;
+	printk(KERN_INFO"J'ai reçu ceci: %s\n", plop);
+	kfree(plop);
+	return size;
+}
+
+/* Cette fonction est appelée quand l'utilisateur ferme notre fichier virtuel.
+ */
+static int device_release(struct inode *i, struct file *f)
+{
+	printk(KERN_INFO"Fermeture!\n");
+	return 0;
+}
+
+/* Cette fonction est appelée quand l'utilisateur effectue un ioctl sur notre
+ * fichier.
+ */
+static long device_ioctl (struct file *f, unsigned int cmd, unsigned long arg)
+{
+	printk(KERN_INFO"ioctl!\n");
+	return 0;
+}
+
+
+
+static int __init tst_init(void)
+{
+	int status;
+
+	printk(KERN_INFO"Hello world!\n");
+
+	major = register_chrdev(0, "light_sensor_spi", &fops);
+	if ( major < 0)
+	{
+		printk(KERN_INFO "Echec de register_chrdev\n");
+		return major;
+	}
+
+	class = class_create(THIS_MODULE, "Hello");
+	if (IS_ERR(class))
+	{
+		printk(KERN_INFO "echec class_create\n");
+		status = PTR_ERR(class);
+		goto errorClass;
+	}
+
+	devt = MKDEV(major, 0);
+	dev = device_create(class, NULL, devt,
+	                    NULL, "hello");
+	status = IS_ERR(dev) ? PTR_ERR(dev) : 0;
+
+	if (status !=0 )
+	{
+		printk(KERN_ERR "Erreur device create\n");
+		goto error;
+	}
+	return 0;
+
+error:
+	class_destroy(class);
+errorClass:
+	unregister_chrdev(major, "hello");
+	return status;
+}
+
+static void __exit tst_exit(void)
+{
+	device_destroy(class, devt);
+	class_destroy(class);
+	unregister_chrdev(major, "hello");
+	printk(KERN_INFO"Goodbye world!\n");
+}
+
+module_init(tst_init);
+module_exit(tst_exit);
+
+MODULE_LICENSE("GPL");
+MODULE_AUTHOR("Cédric Chépied");
+MODULE_DESCRIPTION("KHello World!");

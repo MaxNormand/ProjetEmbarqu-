@@ -1,0 +1,4 @@
+config BR2_PACKAGE_TEMPERATURE_SENSOR_SPI
+	bool temperature_sensor_spi
+	help
+		technologie avancee

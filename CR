@@ -1,0 +1,29 @@
+
+
+
+
+
+	Ce projet comprend 2 drivers : 
+
+		- temperature_sensor_spi
+		- greenhouse_outputs
+	
+	Périphériques contrôlés : 
+
+
+		- temperature_sensor_spi
+
+			Ref. montage	Description					PIN à configurer			
+			--------------------------------------------------------------------------------
+			Montage 1.1	Capteur de lumière et transistor		PIN_LIGHT_STATUS
+			Montage 1.2	ADC 3201 en SPI					SPI_PORT
+		
+		- greenhouse_outputs
+			
+			Ref. montage	Description					PIN à configurer			
+			--------------------------------------------------------------------------------
+			Montage 2.1	(Ventilateur)					PIN_FAN
+			Montage 2.2	(Resistance chauffante)				PIN_RESISTOR
+			Montage 2.3	(Lampe)						PIN_LIGHT
+	
+	

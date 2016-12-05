@@ -1,0 +1,11 @@
+Montage-1.1: 
+Le pont diviseur de tension permet d'obtenir une tension supérieure à 0.6V quand le capteur de lumière ne détecte pas de lumière et inférieure à 0.6V quand il en détecte une.
+Cette tension permet de piloter le transistor, ainsi le PIN_LIGHT_STATUS recoit un 0 quand il y a de la lumière et un 1 quand il n'y en a pas. 
+
+Montage-1.2: 
+Le pont diviseur de tension permet d'obtenir une tension image de la température prélévée par le capteur. Cette tension est ensuite convertit par l'ADC et transmises via le port SPI.
+Ainsi, la valeur de la température est numérisée et peut être interprétée par le système. 
+
+Montage-2.1, Montage-2.2, Montage-2.3: 
+Il s'agit à chaque fois du même circuit Commutateur, permettant de respectivement contrôller le ventilateur, la lampe et la résistance chauffante. Ces trois appareils sont chacuns pilotés par une GPIO, 0 pour l'éteindre et 1 pour l'allumer. 
+De plus, chaque montage dispose d'une LED témoin. Allumée si l'appareil est en fonctionnement.  

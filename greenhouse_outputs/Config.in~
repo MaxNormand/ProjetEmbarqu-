@@ -1,0 +1,4 @@
+config BR2_GREENHOUSE_OUTPUT
+	bool greenhouse_outputs
+	help
+		technologie avancee

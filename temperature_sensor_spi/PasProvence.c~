@@ -1,0 +1,265 @@
+#include <linux/module.h>
+#include <linux/kernel.h>
+
+#include <linux/gpio.h>
+
+#include <asm/irq.h>
+#include <linux/signal.h>
+#include <linux/sched.h>
+#include <linux/interrupt.h>
+
+#include <linux/hrtimer.h>
+#include <linux/ktime.h>
+
+#define PIN_RED 	0
+#define PIN_GREEN 	1
+#define PIN_BLUE 	2
+#define PIN_BUTTON 	3
+
+
+static struct gpio gpio_button[] = {{PIN_BUTTON, GPIOF_IN, "BUTTON"}};
+
+int colorChanging = 0; 		// 0 : R, 1 : G, 2 : B
+int colorStatus = 0; 		// from 0 to 255
+int timerRatio[] = {0, 0, 0};		// [ratio of R, ratio of G, ratio of B]from 0 to 255
+
+
+static struct hrtimer timerR, timerG, timerB;
+ktime_t time;
+
+static enum hrtimer_restart change_color_RED(struct hrtimer *arg);
+static enum hrtimer_restart change_color_GREEN(struct hrtimer *arg);
+static enum hrtimer_restart change_color_BLUE(struct hrtimer *arg);
+
+int IRQ_BUTTON;
+int status;
+
+irqreturn_t irq_bouton(int irq, void *data)
+{	
+	
+	colorChanging = (colorChanging + 1) % 3;
+		
+	return IRQ_HANDLED;
+}
+
+int ledRGBInit(int redPin, int greenPin, int bluePin){
+
+	struct gpio gpio_config[] = {	{redPin, GPIOF_OUT_INIT_HIGH, "LED_RED"},
+					{greenPin, GPIOF_OUT_INIT_HIGH, "LED_GREEN"},					
+					{bluePin, GPIOF_OUT_INIT_HIGH, "LED_BLUE"}
+					};
+
+	int tmp = gpio_request_array(gpio_config, 3);
+	
+	printk("RGB GPIO : %d\n", tmp);
+
+	return tmp;
+}
+
+void ledRGBFree(int redPin, int greenPin, int bluePin){
+
+	struct gpio gpio_config[] = {	{redPin, GPIOF_OUT_INIT_HIGH, "LED_RED"},
+					{greenPin, GPIOF_OUT_INIT_HIGH, "LED_GREEN"},					
+					{bluePin, GPIOF_OUT_INIT_HIGH, "LED_BLUE"}
+					};
+
+	gpio_free_array(gpio_config, 3);
+
+}
+
+
+static int __init fonctionInit(void)
+{
+	
+
+	int tmp = gpio_request_array(gpio_button, 1);
+	
+	printk("BUTTON GPIO : %d\t", tmp);
+	
+
+
+	if(tmp == 0 && ledRGBInit(PIN_RED, PIN_GREEN, PIN_BLUE) == 0)
+	{
+
+		printk(KERN_INFO"GPIOs Initialized \n");
+
+		status = gpio_to_irq(PIN_BUTTON);
+
+		IRQ_BUTTON = status;		
+		
+		if(status > 0)
+		{
+
+			printk(KERN_INFO"IRQ Available \n");
+			gpio_set_debounce(gpio_button[0].gpio, 1000);
+
+			status = request_irq(IRQ_BUTTON, irq_bouton, IRQF_TRIGGER_RISING, "Button", NULL );
+
+			if(status == 0)
+			{
+
+				printk(KERN_INFO"IRQ Allocated \n");
+
+				hrtimer_init(&timerR, CLOCK_MONOTONIC, HRTIMER_MODE_REL);
+				timerR.function = change_color_RED;
+				hrtimer_init(&timerG, CLOCK_MONOTONIC, HRTIMER_MODE_REL);
+				timerG.function = change_color_GREEN;
+				hrtimer_init(&timerB, CLOCK_MONOTONIC, HRTIMER_MODE_REL);
+				timerB.function = change_color_BLUE;
+
+				
+				
+				time = ktime_set(0, 1000);
+
+				hrtimer_start(&timerR, time, HRTIMER_MODE_REL);
+				hrtimer_start(&timerG, time, HRTIMER_MODE_REL);
+				hrtimer_start(&timerB, time, HRTIMER_MODE_REL);
+				
+				change_color_RED(NULL);
+				change_color_GREEN(NULL);
+				change_color_BLUE(NULL);
+
+				printk(KERN_INFO"NTM\n");
+
+
+			}else{
+				
+				printk(KERN_ERR"IRQ Not Allocated \n");
+				return -1;
+
+			}
+			
+
+		}else{
+
+			printk(KERN_ERR"IRQ Not Available \n");
+			return -1;
+		}
+		
+		
+
+	}else{
+
+		printk(KERN_INFO"Error while initializing the GPIOs. \n");
+		return -1;
+	
+	}
+		
+	
+
+	printk(KERN_INFO"Hello Varois! \n");
+	return 0;
+}
+
+static void __exit fonctionExit(void)
+{	
+	gpio_free_array(gpio_button, 1);
+	
+	ledRGBFree(PIN_RED,PIN_GREEN,PIN_BLUE);
+
+	status += hrtimer_cancel(&timerR);
+	status += hrtimer_cancel(&timerG);
+	status += hrtimer_cancel(&timerB);
+
+	free_irq(IRQ_BUTTON, NULL);
+
+	if(status) 
+	{
+		printk(KERN_INFO"Error while whiping your ass.\n");
+	}else{
+		printk(KERN_INFO"Your ass's clean biatch !\n");
+	
+	}	
+}
+
+
+static enum hrtimer_restart change_color_RED(struct hrtimer *arg)
+{
+	
+	if(colorStatus == 255){ //End of a period
+		colorStatus = 0;
+		if(colorChanging == 0){
+			timerRatio[0]++;
+		}
+	}
+	
+	if(timerRatio[0] == 255){ //End of a color changing period
+		timerRatio[0] = 0;
+	}
+	
+	if(colorStatus < timerRatio[0]){
+		gpio_set_value(PIN_RED, 0);
+	}else{
+		gpio_set_value(PIN_RED, 1);
+	}
+	
+	colorStatus++;
+	
+	
+	return HRTIMER_NORESTART;
+}
+
+
+static enum hrtimer_restart change_color_GREEN(struct hrtimer *arg)
+{
+	
+	if(colorStatus == 255){ //End of a period
+		colorStatus = 0;
+		if(colorChanging == 1){
+			timerRatio[1]++;
+		}
+	}
+	
+	if(timerRatio[1] == 255){ //End of a color changing period
+		timerRatio[1] = 0;
+	}
+	
+	if(colorStatus < timerRatio[1]){
+		gpio_set_value(PIN_GREEN, 0);
+	}else{
+		gpio_set_value(PIN_GREEN, 1);
+	}
+	
+	colorStatus++;
+	
+	
+	return HRTIMER_NORESTART;
+}
+
+static enum hrtimer_restart change_color_BLUE(struct hrtimer *arg)
+{
+	
+	if(colorStatus == 255){ //End of a period
+		colorStatus = 0;
+		if(colorChanging == 2){
+			timerRatio[2]++;
+		}
+	}
+	
+	if(timerRatio[2] == 255){ //End of a color changing period
+		timerRatio[2] = 0;
+	}
+	
+	if(colorStatus < timerRatio[2]){
+		gpio_set_value(PIN_BLUE, 0);
+	}else{
+		gpio_set_value(PIN_BLUE, 1);
+	}
+	
+	colorStatus++;
+	
+	
+	return HRTIMER_NORESTART;
+}
+
+
+
+
+
+
+module_init(fonctionInit);
+module_exit(fonctionExit);
+
+MODULE_LICENSE("GPL");
+MODULE_AUTHOR("Maxime NORMAND");
+MODULE_DESCRIPTION("Pas Provence");

@@ -1,0 +1,129 @@
+	
+	Maxime NORMAND
+	Maxime HUBERT			
+
+
+				COMPTE RENDU DU 16/11/2016
+
+
+		Sujet : Evolution des composantes couleur d'une LED RGB
+
+
+	Matériel utilisé : 
+
+		Une LED RGB
+		Un bouton poussoir
+			
+			+Vcc			
+			  |				
+			(LED)			
+		    ______|______		   
+		   |      |      |		  
+		PIN_RED   |    PIN_BLUE
+		      PIN_GREEN
+
+			+Vcc			
+			  |				
+		       (BOUTON)	
+		    	  |______PIN_BOUTON
+			  |		   
+		         (R)      		  
+		       	  |
+		         GND
+
+	Variables à configurer en fonction du branchement : 
+
+		PIN_RED 
+		PIN_GREEN 	
+		PIN_BLUE 	
+		PIN_BUTTON 
+
+	Fonctionnement global :
+				
+
+		La LED RGB change de couleur au cours du temps sur une composante de couleur (R, G ou B). 
+		Cette composante variable peut être changée lorsque l'on active le bouton poussoir.
+
+			Evolution de la composante variable "colorChanging" : (-> : appui sur le bouton)
+				
+			colorChanging = 0 (RED) -> colorChanging = 1 (GREEN)-> colorChanging = 2 (BLUE) -> colorChanging = 0 (RED) ...
+				
+	Ce programme réalise les tâches suivantes : 
+
+		Initialisation : static int __init fonctionInit(void)
+
+			Initialisation du port GPIO du bouton
+
+			Initialisation des ports GPIO de la LED :
+
+				int ledRGBInit(int redPin, int greenPin, int bluePin)
+
+			Initialisation de trois timers : un pour contrôler chaque composante de couleur de la LED
+			
+				static struct hrtimer timerR, timerG, timerB;
+
+			Initialisation d'un évènement rattaché au bouton poussoir, qui exécute la fonction
+
+				irqreturn_t irq_bouton(int irq, void *data)
+
+		Gestion des timers de chaque composante couleur :
+
+			La variable globale int timerRatio[] contient trois valeurs numériques
+				
+				timerRatio[colorChanging] s'incrémente à chaque exécution du timer
+				
+				Si timerRatio[colorChanging] est égale à 255, sa valeur est remise à 0
+			
+			La variable globale colorStatus s'incrémente à chaque exécution du timer (toutes les 1ms)
+
+				Si colorStatus est égale à 255, sa valeur est remise à 0
+
+			Pour le timer gérant la composante RED : 
+
+				Si colorStatus est inférieure à colorRatio[0]
+					
+					On écrit la valeur 1 sur la PIN_RED
+
+				Sinon
+
+					On écrit la valeur 0 sur la PIN_RED
+
+			Il en est de même pour (GREEN, colorRatio[1] et PIN_GREEN) et pour (BLUE, colorRatio[2] et PIN_BLUE) 
+		    	 
+			
+
+	Résultat :
+
+		Génération d'un signal dont le rapport cyclique évolue sur la PIN désignée par colorChanging :
+			
+			Aperçu de 255 periodes d'exécution d'un timer : 
+			
+			      ______	
+			     |	    |
+			     |	    |
+			_____|	    |
+		       (0)  (1)    (2)
+
+			Ces 255 périodes d'exécution se répètent en continu, générant un signal de pseudo-période T = 255ms
+
+				- (0) 	: 	0 -> colorStatus
+				- [0 1] :  	PIN_[RED, GREEN, BLUE] = 0
+				- (1)	:	colorStatus > timerRatio[ [0 1 2] ]
+				- [1 2] :  	PIN_[RED, GREEN, BLUE] = 1
+				- (2)	:	255 -> colorStatus
+ 
+
+
+
+
+
+
+
+
+
+
+
+
+
+			
+			
